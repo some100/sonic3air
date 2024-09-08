@@ -1,8 +1,8 @@
-FROM debian:latest
+FROM alpine:latest
 
 WORKDIR /
 
-RUN apt-get update && apt-get install -y build-essential cmake
+RUN apk add --update alpine-sdk cmake
 
 COPY . /src
 
