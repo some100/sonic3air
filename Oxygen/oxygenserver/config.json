@@ -1,5 +1,5 @@
 {
 	// Ports
 	"UDPPort": "21094",
-	"TCPPort": "21095"
+	"TCPPort": "443"
 }
