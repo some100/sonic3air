@@ -1,7 +1,5 @@
 FROM alpine:latest
 
-WORKDIR /src
-
 RUN apk add --update build-base cmake
 
 COPY . /src
