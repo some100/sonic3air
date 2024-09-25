@@ -543,6 +543,8 @@ bool TCPSocket::receiveInternal(ReceiveResult& outReceiveResult)
 				return true;
 			RMX_ERROR("recv failed with error: " << errorCode, );
 		#else
+			if (errno == EWOULDBLOCK)               // Ignore this error, can't block so we return immediately instead
+				return true;
 			RMX_ERROR("recv failed with error: " << result, );
 		#endif
 			return false;
