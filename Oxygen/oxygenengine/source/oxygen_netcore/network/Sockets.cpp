@@ -345,7 +345,7 @@ bool TCPSocket::acceptConnection(TCPSocket& outSocket)
 	FD_ZERO(&socketSet);
 	FD_SET(mInternal->mSocket, &socketSet);
 	timeval timeout { 0, 0 };
-	const int result = ::select(0, &socketSet, nullptr, nullptr, &timeout);
+	const int result = ::select(mInternal->mSocket + 1, &socketSet, nullptr, nullptr, &timeout);
 	if (result < 0)
 	{
 	#ifdef _WIN32
@@ -543,6 +543,8 @@ bool TCPSocket::receiveInternal(ReceiveResult& outReceiveResult)
 				return true;
 			RMX_ERROR("recv failed with error: " << errorCode, );
 		#else
+			if (errno == EWOULDBLOCK)
+				return true;
 			RMX_ERROR("recv failed with error: " << result, );
 		#endif
 			return false;

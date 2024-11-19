@@ -93,7 +93,7 @@ include_directories(${WORKSPACE_DIR}/Oxygen/oxygenserver/source/external)
 
 # rmxbase
 
-file(GLOB RMXBASE_SOURCES ${WORKSPACE_DIR}/librmx/source/rmxbase/*.cpp
+file(GLOB_RECURSE RMXBASE_SOURCES ${WORKSPACE_DIR}/librmx/source/rmxbase/*.cpp
 						  ${WORKSPACE_DIR}/librmx/source/rmxbase/jsoncpp/*.cpp)
 
 add_library(rmxbase ${RMXBASE_SOURCES})
