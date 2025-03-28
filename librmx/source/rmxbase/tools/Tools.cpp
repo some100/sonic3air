@@ -1,6 +1,6 @@
 /*
 *	rmx Library
-*	Copyright (C) 2008-2024 by Eukaryot
+*	Copyright (C) 2008-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -317,6 +317,14 @@ namespace rmx
 	bool endsWith(std::wstring_view fullString, std::wstring_view prefix)
 	{
 		return stringEndsWith<std::wstring_view>(fullString, prefix);
+	}
+
+	bool containsCaseInsensitive(std::string_view fullString, std::string_view substring)
+	{
+		const auto it = std::search(fullString.begin(), fullString.end(), substring.begin(), substring.end(),
+			[](char a, char b) { return std::toupper(a) == std::toupper(b); }
+		);
+		return (it != fullString.end());
 	}
 
 	std::string getTimestampStringForFilename()

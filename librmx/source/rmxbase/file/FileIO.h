@@ -1,6 +1,6 @@
 /*
 *	rmx Library
-*	Copyright (C) 2008-2024 by Eukaryot
+*	Copyright (C) 2008-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -27,6 +27,9 @@ namespace rmx
 
 	public:
 		static bool exists(std::wstring_view path);
+		static bool isFile(std::wstring_view path);
+		static bool isDirectory(std::wstring_view path);
+
 		static bool getFileSize(std::wstring_view filename, uint64& outSize);
 		static bool getFileTime(std::wstring_view filename, time_t& outTime);
 

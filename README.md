@@ -48,6 +48,7 @@ External libraries and code used in this project:
 * libogg & libvorbis - in "framework/external/ogg-vorbis"
 * zlib incl. minizip - in "framework/external/zlib"
 * libcurl - in "framework/external/curl"
+* Dear ImGui - in "framework/external/imgui"
 * jsoncpp - in "librmx/source/rmxbase/jsoncpp"
 * GLEW - in "librmx/source/rmxmedia/glew"
 * Sound chip emulation related code from Genesis Plus GX - in "Oxygen/oxygenengine/source/oxygen/simulation/sound"
@@ -86,6 +87,9 @@ Game scripts & other contributions by:
 * Elsie The Pict
 * TheMushrunt
 * mrgrassman14
+
+Additional thanks:
+* All contributors of the Sonic 3 / Sonic & Knuckles Disassembly (https://github.com/sonicretro/skdisasm), which has proven itself a valuable source of information on S3&K code
 
 
 ## Want to contribute?

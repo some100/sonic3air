@@ -1,6 +1,6 @@
 /*
 *	rmx Library
-*	Copyright (C) 2017-2024 by Eukaryot
+*	Copyright (C) 2017-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -55,13 +55,15 @@ public:
 	bool loadBMP(const std::vector<uint8>& bmpContent, std::vector<uint32>* outPalette = nullptr);	// Expecting palette colors to use ABGR32 format
 	bool saveBMP(std::vector<uint8>& bmpContent, const uint32* palette) const;
 
+	void convertToRGBA(Bitmap& output, const uint32* palette, size_t paletteSize) const;
+
 	// Operators
 	inline uint8& operator[](size_t index)							{ return mData[index]; }
 	inline const uint8& operator[](size_t index) const				{ return mData[index]; }
 	inline PaletteBitmap& operator=(const PaletteBitmap& toCopy)	{ copy(toCopy); return *this; }
 
 private:
-	void memcpyRect(uint8* dst, int dwid, uint8* src, int swid, int wid, int hgt);
+	void memcpyRect(uint8* dst, int dwid, const uint8* src, int swid, int wid, int hgt);
 
 private:
 	uint8* mData = nullptr;

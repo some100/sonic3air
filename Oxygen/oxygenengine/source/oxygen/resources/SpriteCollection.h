@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2024 by Eukaryot
+*	Copyright (C) 2017-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -13,6 +13,7 @@
 #include "oxygen/rendering/sprite/PaletteSprite.h"
 
 class EmulatorInterface;
+class Mod;
 class SpriteDump;
 
 
@@ -53,9 +54,8 @@ public:
 
 		Type mType = Type::UNKNOWN;
 		ROMSpriteData mROMSpriteData;	// Only for type ROM_DATA
-	#ifdef DEBUG
 		std::string mSourceIdentifier;	// Only for type SPRITE_FILE
-	#endif
+		const Mod* mMod = nullptr;		// Only for type SPRITE_FILE
 	};
 
 	struct Item
@@ -81,6 +81,8 @@ public:
 	Item& getOrCreatePaletteSprite(uint64 key);
 	Item& getOrCreateComponentSprite(uint64 key);
 
+	inline const std::unordered_map<uint64, Item>& getAllSprites() const  { return mSpriteItems; }
+
 	Item& setupSpriteFromROM(EmulatorInterface& emulatorInterface, const ROMSpriteData& romSpriteData, uint8 atex);
 
 	void clearRedirect(uint64 sourceKey);
@@ -92,20 +94,22 @@ public:
 	void dumpSprite(uint64 key, std::string_view categoryKey, uint8 spriteNumber, uint8 atex);
 
 private:
-	struct SpritePalettes
+	struct SpritePalette
 	{
-		std::unordered_map<uint64, std::vector<uint32>> mPalettes;
-		std::unordered_map<uint64, uint64> mRedirections;
+		const Item* mItem = nullptr;
+		std::vector<uint32> mColors;
 	};
 
 private:
 	Item& createItem(uint64 key);
-	void loadSpriteDefinitions(const std::wstring& path);
-	void addSpritePalette(uint64 paletteKey, std::vector<uint32>& palette);
+	void loadSpriteDefinitions(const std::wstring& path, const Mod* mod);
+	void addSpritePalette(uint64 paletteKey, const Item& item, std::vector<uint32>& palette);
 
 private:
 	std::unordered_map<uint64, Item> mSpriteItems;
-	SpritePalettes mSpritePalettes;
+
+	std::unordered_map<uint64, SpritePalette> mSpritePalettes;
+	std::unordered_map<uint64, uint64> mPaletteRedirections;
 
 	SpriteDump* mSpriteDump = nullptr;
 	uint32 mGlobalChangeCounter = 0;

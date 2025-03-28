@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2024 by Eukaryot
+*	Copyright (C) 2017-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -586,9 +586,7 @@ void BlueSpheresRendering::buildSprite(const uint8* lookupDataBase, const String
 	{
 		const uint64 spriteKey = rmx::getMurmur2_64(spriteIdentifier[k]);
 		SpriteCollection::Item& item = spriteCollection.getOrCreatePaletteSprite(spriteKey);
-	#ifdef DEBUG
 		item.mSourceInfo.mSourceIdentifier = *spriteIdentifier[k];
-	#endif
 		++item.mChangeCounter;
 		bitmaps[k] = &static_cast<PaletteSprite*>(item.mSprite)->accessBitmap();
 		items[k] = &item;

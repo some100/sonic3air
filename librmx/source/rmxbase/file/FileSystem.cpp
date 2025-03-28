@@ -1,6 +1,6 @@
 /*
 *	rmx Library
-*	Copyright (C) 2008-2024 by Eukaryot
+*	Copyright (C) 2008-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -63,6 +63,36 @@ namespace rmx
 			if (nullptr != localPath)
 			{
 				if (mountPoint.mFileProvider->exists(*localPath))
+					return true;
+			}
+		}
+		return false;
+	}
+
+	bool FileSystem::isFile(std::wstring_view path)
+	{
+		mTempPath2 = normalizePath(path, mTempPath2, FileIO::isDirectoryPath(path));
+		for (MountPoint& mountPoint : mMountPoints)
+		{
+			const std::wstring* localPath = applyMountPoint(mountPoint, mTempPath2, mTempPath);
+			if (nullptr != localPath)
+			{
+				if (mountPoint.mFileProvider->isFile(*localPath))
+					return true;
+			}
+		}
+		return false;
+	}
+
+	bool FileSystem::isDirectory(std::wstring_view path)
+	{
+		mTempPath2 = normalizePath(path, mTempPath2, FileIO::isDirectoryPath(path));
+		for (MountPoint& mountPoint : mMountPoints)
+		{
+			const std::wstring* localPath = applyMountPoint(mountPoint, mTempPath2, mTempPath);
+			if (nullptr != localPath)
+			{
+				if (mountPoint.mFileProvider->isDirectory(*localPath))
 					return true;
 			}
 		}

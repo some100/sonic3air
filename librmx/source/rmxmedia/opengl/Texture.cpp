@@ -1,6 +1,6 @@
 /*
 *	rmx Library
-*	Copyright (C) 2008-2024 by Eukaryot
+*	Copyright (C) 2008-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -65,10 +65,10 @@ GLenum Texture::getDefaultDataFormat(GLint internalFormat)
 #ifdef ALLOW_LEGACY_OPENGL
 	if (internalFormat >= GL_DEPTH_COMPONENT16 && internalFormat <= GL_DEPTH_COMPONENT32)
 		return GL_DEPTH_COMPONENT;
-#endif
-
 	if (internalFormat == GL_R8)	// TODO: Translate others as well
 		return GL_RED;
+#endif
+
 	return GL_RGBA;
 }
 

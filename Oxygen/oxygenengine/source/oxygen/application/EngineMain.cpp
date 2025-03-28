@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2024 by Eukaryot
+*	Copyright (C) 2017-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -9,6 +9,7 @@
 #include "oxygen/pch.h"
 #include "oxygen/application/EngineMain.h"
 #include "oxygen/application/Application.h"
+#include "oxygen/application/ArgumentsReader.h"
 #include "oxygen/application/Configuration.h"
 #include "oxygen/application/GameProfile.h"
 #include "oxygen/application/audio/AudioOutBase.h"
@@ -17,16 +18,18 @@
 #include "oxygen/application/modding/ModManager.h"
 #include "oxygen/application/video/VideoOut.h"
 #include "oxygen/download/DownloadManager.h"
+#include "oxygen/devmode/ImGuiIntegration.h"
 #include "oxygen/drawing/opengl/OpenGLDrawer.h"
 #include "oxygen/drawing/software/SoftwareDrawer.h"
-#include "oxygen/platform/CrashHandler.h"
-#include "oxygen/platform/PlatformFunctions.h"
-#include "oxygen/resources/FontCollection.h"
-#include "oxygen/resources/ResourcesCache.h"
 #include "oxygen/file/PackedFileProvider.h"
 #include "oxygen/helper/FileHelper.h"
 #include "oxygen/helper/JsonHelper.h"
 #include "oxygen/helper/Logging.h"
+#include "oxygen/network/EngineServerClient.h"
+#include "oxygen/platform/CrashHandler.h"
+#include "oxygen/platform/PlatformFunctions.h"
+#include "oxygen/resources/FontCollection.h"
+#include "oxygen/resources/ResourcesCache.h"
 #include "oxygen/rendering/RenderResources.h"
 #include "oxygen/simulation/LogDisplay.h"
 #include "oxygen/simulation/PersistentData.h"
@@ -36,23 +39,24 @@
 #endif
 
 
-#if !defined(PLATFORM_MAC) && !defined(PLATFORM_ANDROID)	// Maybe other platforms can be excluded as well? Possibly only Windows and Linux need this
+#if defined(PLATFORM_WINDOWS) || defined(PLATFORM_LINUX)
 	#define LOAD_APP_ICON_PNG
 #endif
 
 
 struct EngineMain::Internal
 {
-	GameProfile		mGameProfile;
-	InputManager	mInputManager;
-	LogDisplay		mLogDisplay;
-	ModManager		mModManager;
-	ResourcesCache	mResourcesCache;
-	FontCollection	mFontCollection;
-	PersistentData	mPersistentData;
-	VideoOut		mVideoOut;
-	ControlsIn		mControlsIn;
-	DownloadManager mDownloadManager;
+	GameProfile		   mGameProfile;
+	InputManager	   mInputManager;
+	LogDisplay		   mLogDisplay;
+	ModManager		   mModManager;
+	ResourcesCache	   mResourcesCache;
+	FontCollection	   mFontCollection;
+	PersistentData	   mPersistentData;
+	VideoOut		   mVideoOut;
+	ControlsIn		   mControlsIn;
+	DownloadManager	   mDownloadManager;
+	EngineServerClient mEngineServerClient;
 
 #if defined(PLATFORM_ANDROID)
 	AndroidJavaInterface mAndroidJavaInterface;
@@ -79,8 +83,9 @@ void EngineMain::earlySetup()
 	INIT_RMXEXT_OGGVORBIS;
 }
 
-EngineMain::EngineMain(EngineDelegateInterface& delegate_) :
+EngineMain::EngineMain(EngineDelegateInterface& delegate_, ArgumentsReader& arguments) :
 	mDelegate(delegate_),
+	mArguments(arguments),
 	mInternal(*new Internal())
 {
 }
@@ -90,17 +95,8 @@ EngineMain::~EngineMain()
 	delete &mInternal;
 }
 
-void EngineMain::execute(int argc, char** argv)
+void EngineMain::execute()
 {
-#if !defined(PLATFORM_VITA)
-	// Setup arguments
-	mArguments.reserve(argc);
-	for (int i = 0; i < argc; ++i)
-	{
-		mArguments.emplace_back(argv[i]);
-	}
-#endif
-
 	// Startup the Oxygen engine part that is independent from the application / project
 	if (startupEngine())
 	{
@@ -186,6 +182,8 @@ void EngineMain::switchToRenderMethod(Configuration::RenderMethod newRenderMetho
 
 		// Check OpenGL in the config again, it could have changed - namely if OpenGL initialization failed
 		nowUsingOpenGL = (config.mRenderMethod == Configuration::RenderMethod::OPENGL_FULL || config.mRenderMethod == Configuration::RenderMethod::OPENGL_SOFT);
+
+		ImGuiIntegration::onWindowRecreated(nowUsingOpenGL);
 	}
 
 	if (nowUsingOpenGL)
@@ -229,29 +227,6 @@ bool EngineMain::startupEngine()
 	if (!mDelegate.onEnginePreStartup())
 		return false;
 
-	std::wstring argumentProjectPath;
-#if !defined(PLATFORM_ANDROID) && !defined(PLATFORM_VITA)
-	// Parse arguments
-	for (size_t i = 1; i < mArguments.size(); ++i)
-	{
-		if (mArguments[i][0] == '-')
-		{
-			// TODO: Add handling for options
-		}
-		else
-		{
-			const String arg(mArguments[i]);
-
-			std::wstring path = arg.toStdWString();
-			FTX::FileSystem->normalizePath(path, true);
-			if (FTX::FileSystem->exists(path + L"oxygenproject.json"))
-			{
-				argumentProjectPath = path;
-			}
-		}
-	}
-#endif
-
 	const EngineDelegateInterface::AppMetaData& appMetaData = mDelegate.getAppMetaData();
 	Configuration& config = Configuration::instance();
 
@@ -271,20 +246,12 @@ bool EngineMain::startupEngine()
 		RMX_LOG_INFO("--- STARTUP ---");
 		RMX_LOG_INFO("Logging started");
 		RMX_LOG_INFO("Application version: " << appMetaData.mBuildVersionString);
-
-		String commandLine;
-		for (std::string& arg : mArguments)
-		{
-			if (!commandLine.empty())
-				commandLine.add(' ');
-			commandLine.add(arg);
-		}
-		RMX_LOG_INFO("Command line:  " << commandLine.toStdString());
-		RMX_LOG_INFO("App data path: " << WString(config.mAppDataPath).toStdString());
+		RMX_LOG_INFO("Executable path:     " << WString(mArguments.mExecutableCallPath).toStdString());
+		RMX_LOG_INFO("App data path:       " << WString(config.mAppDataPath).toStdString());
 	}
 
 	// Load configuration and settings
-	if (!initConfigAndSettings(argumentProjectPath))
+	if (!initConfigAndSettings())
 		return false;
 
 	// Setup file system
@@ -315,9 +282,6 @@ bool EngineMain::startupEngine()
 	RMX_LOG_INFO("Input initialization...");
 	InputManager::instance().startup();
 
-	RMX_LOG_INFO("Startup of ControlsIn");
-	mInternal.mControlsIn.startup();
-
 	// Audio
 	RMX_LOG_INFO("Audio initialization...");
 	FTX::Audio->initialize(config.mAudioSampleRate, 2, 1024);
@@ -325,6 +289,10 @@ bool EngineMain::startupEngine()
 	RMX_LOG_INFO("Startup of AudioOut");
 	mAudioOut = &EngineMain::getDelegate().createAudioOut();
 	mAudioOut->startup();
+
+	// ImGui integration
+	ImGuiIntegration::setEnabled(config.mDevMode.mEnabled);
+	ImGuiIntegration::startup();
 
 	// Done
 	RMX_LOG_INFO("Engine startup successful");
@@ -344,6 +312,8 @@ void EngineMain::run()
 
 void EngineMain::shutdown()
 {
+	ImGuiIntegration::shutdown();
+
 	destroyWindow();
 
 	// Shutdown subsystems
@@ -353,7 +323,6 @@ void EngineMain::shutdown()
 		mAudioOut->shutdown();
 		SAFE_DELETE(mAudioOut);
 	}
-	mInternal.mControlsIn.shutdown();
 
 	// Shutdown drawer
 	mDrawer.shutdown();
@@ -375,7 +344,7 @@ void EngineMain::initDirectories()
 	Configuration& config = Configuration::instance();
 
 #if !defined(PLATFORM_ANDROID) && !defined(PLATFORM_VITA)
-	config.mExePath = *String(mArguments[0]).toWString();
+	config.mExePath = mArguments.mExecutableCallPath;
 #endif
 
 	// Get app data path
@@ -432,7 +401,7 @@ void EngineMain::initDirectories()
 	config.mPersistentDataBasePath = config.mAppDataPath + L"storage/";
 }
 
-bool EngineMain::initConfigAndSettings(const std::wstring& argumentProjectPath)
+bool EngineMain::initConfigAndSettings()
 {
 	RMX_LOG_INFO("Initializing configuration");
 	Configuration& config = Configuration::instance();
@@ -456,17 +425,15 @@ bool EngineMain::initConfigAndSettings(const std::wstring& argumentProjectPath)
 	const bool hasCustomGameProfile = mDelegate.setupCustomGameProfile();
 	if (!hasCustomGameProfile)
 	{
-		if (!argumentProjectPath.empty())
+		if (!mArguments.mProjectPath.empty() && FTX::FileSystem->exists(mArguments.mProjectPath + L"oxygenproject.json"))
 		{
 			// Overwrite project path from config
-			config.mProjectPath = argumentProjectPath;
+			config.mProjectPath = mArguments.mProjectPath;
 		}
-		if (!config.mProjectPath.empty())
-		{
-			RMX_LOG_INFO("Loading game profile");
-			const bool loadedProject = mInternal.mGameProfile.loadOxygenProjectFromFile(config.mProjectPath + L"oxygenproject.json");
-			RMX_CHECK(loadedProject, "Failed to load game profile from '" << *WString(config.mProjectPath).toString() << "oxygenproject.json'", );
-		}
+
+		RMX_LOG_INFO("Loading game profile");
+		const bool loadedProject = mInternal.mGameProfile.loadOxygenProjectFromFile(config.mProjectPath + L"oxygenproject.json");
+		RMX_CHECK(loadedProject, "Failed to load game profile from '" << *WString(config.mProjectPath).toString() << "oxygenproject.json'", );
 	}
 
 	RMX_LOG_INFO("Loading settings");
@@ -477,6 +444,12 @@ bool EngineMain::initConfigAndSettings(const std::wstring& argumentProjectPath)
 	{
 		// Save default settings once immediately
 		config.saveSettings();
+	}
+
+	// Respect display index if set on the command line
+	if (mArguments.mDisplayIndex >= 0)
+	{
+		config.mDisplayIndex = mArguments.mDisplayIndex;
 	}
 
 	// Evaluate fail-safe mode
@@ -499,8 +472,6 @@ bool EngineMain::initConfigAndSettings(const std::wstring& argumentProjectPath)
 	//  -> Note that this doesn't work for the web version, if running in mobile browsers - we rely on a window with fixed size (see config.json) there
 	config.mWindowMode = Configuration::WindowMode::EXCLUSIVE_FULLSCREEN;
 #endif
-
-	config.evaluateGameRecording();
 
 	RMX_LOG_INFO(((config.mRenderMethod == Configuration::RenderMethod::SOFTWARE) ? "Using pure software renderer" :
 				  (config.mRenderMethod == Configuration::RenderMethod::OPENGL_SOFT) ? "Using opengl-soft renderer" : "Using opengl-full renderer"));
@@ -676,7 +647,7 @@ bool EngineMain::createWindow()
 				break;
 			}
 
-			case Configuration::WindowMode::BORDERLESS_FULLSCREEN:
+			case Configuration::WindowMode::FULLSCREEN_BORDERLESS:
 			{
 				// Borderless maximized window
 				SDL_Rect rect;
@@ -698,11 +669,18 @@ bool EngineMain::createWindow()
 				break;
 			}
 
-			case Configuration::WindowMode::EXCLUSIVE_FULLSCREEN:
+			case Configuration::WindowMode::FULLSCREEN_DESKTOP:
 			{
 				// Fullscreen window at desktop resolution
 				//  -> According to https://wiki.libsdl.org/SDL_SetWindowFullscreen, this is not really an exclusive fullscreen mode, but that's fine
 				flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
+				break;
+			}
+
+			case Configuration::WindowMode::FULLSCREEN_EXCLUSIVE:
+			{
+				// Real exclusive fullscreen with custom resolution
+				flags |= SDL_WINDOW_FULLSCREEN;
 				break;
 			}
 		}

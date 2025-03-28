@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2024 by Eukaryot
+*	Copyright (C) 2017-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -40,8 +40,8 @@ Color PaletteManager::unpackColor(uint16 packedColor)
 
 PaletteManager::PaletteManager()
 {
-	mMainPalette[0].initPalette(0, MAIN_PALETTE_SIZE, BitFlagSet<PaletteBase::Properties>());
-	mMainPalette[1].initPalette(1, MAIN_PALETTE_SIZE, BitFlagSet<PaletteBase::Properties>());
+	mMainPalette[0].initPalette(0, MAIN_PALETTE_SIZE, BitFlagSet<PaletteBase::Properties>(), "#_main_primary");
+	mMainPalette[1].initPalette(1, MAIN_PALETTE_SIZE, BitFlagSet<PaletteBase::Properties>(), "#_main_secondary");
 }
 
 void PaletteManager::preFrameUpdate()
@@ -122,7 +122,7 @@ void PaletteManager::writePaletteEntryPacked(int paletteIndex, uint16 colorIndex
 	mMainPalette[1].setPaletteEntryPacked(colorIndex, color, packedColor);
 }
 
-void PaletteManager::setPaletteSplitPositionY(uint8 py)
+void PaletteManager::setPaletteSplitPositionY(int py)
 {
 	mSplitPositionY = py;
 }

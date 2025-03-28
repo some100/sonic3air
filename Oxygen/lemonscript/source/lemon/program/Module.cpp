@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2024 by Eukaryot
+*	Copyright (C) 2017-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -90,6 +90,7 @@ namespace lemon
 		// Clear source file infos
 		mSourceFileInfoPool.clear();
 		mAllSourceFiles.clear();
+		mWarnings.clear();
 	}
 
 	void Module::startCompiling(const GlobalsLookup& globalsLookup)
@@ -243,11 +244,12 @@ namespace lemon
 		fileHandle.write(&content[0], content.length());
 	}
 
-	const SourceFileInfo& Module::addSourceFileInfo(const std::wstring& basepath, const std::wstring& filename)
+	const SourceFileInfo& Module::addSourceFileInfo(const std::wstring& localPath, const std::wstring& filename)
 	{
 		SourceFileInfo& sourceFileInfo = mSourceFileInfoPool.createObject();
+		sourceFileInfo.mModule = this;
 		sourceFileInfo.mFilename = filename;
-		sourceFileInfo.mFullPath = basepath + filename;
+		sourceFileInfo.mLocalPath = localPath;
 		sourceFileInfo.mIndex = mAllSourceFiles.size();
 		mAllSourceFiles.push_back(&sourceFileInfo);
 		return sourceFileInfo;
@@ -281,7 +283,7 @@ namespace lemon
 		return mFunctions[uniqueId & 0xffff];
 	}
 
-	ScriptFunction& Module::addScriptFunction(FlyweightString name, const DataTypeDefinition* returnType, const Function::ParameterList& parameters, std::vector<FlyweightString>* aliasNames)
+	ScriptFunction& Module::addScriptFunction(FlyweightString name, const DataTypeDefinition* returnType, const Function::ParameterList& parameters, std::vector<Function::AliasName>* aliasNames)
 	{
 		ScriptFunction& func = mScriptFunctionPool.createObject();
 		func.setModule(*this);
@@ -399,7 +401,7 @@ namespace lemon
 		return constant;
 	}
 
-	ConstantArray& Module::addConstantArray(FlyweightString name, const DataTypeDefinition* elementDataType, const uint64* values, size_t size, bool isGlobalDefinition)
+	ConstantArray& Module::addConstantArray(FlyweightString name, const DataTypeDefinition* elementDataType, const AnyBaseValue* values, size_t size, bool isGlobalDefinition)
 	{
 		ConstantArray& constantArray = mConstantArrayPool.createObject();
 		constantArray.mName = name;

@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2024 by Eukaryot
+*	Copyright (C) 2017-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -8,6 +8,7 @@
 
 #include "oxygen/pch.h"
 #include "oxygen/application/input/InputConfig.h"
+#include "oxygen/application/input/InputManager.h"
 
 
 namespace
@@ -287,17 +288,12 @@ bool InputConfig::Assignment::setFromMappingString(Assignment& output, const Str
 void InputConfig::setupDefaultDeviceDefinitions(std::vector<DeviceDefinition>& outDeviceDefinitions)
 {
 	outDeviceDefinitions.clear();
+	for (int keyboardIndex = 0; keyboardIndex < InputManager::NUM_PLAYERS; ++keyboardIndex)
 	{
 		DeviceDefinition& deviceDefinition = vectorAdd(outDeviceDefinitions);
 		deviceDefinition.mDeviceType = DeviceType::KEYBOARD;
-		deviceDefinition.mIdentifier = "Keyboard1";
-		setupDefaultKeyboardMappings(deviceDefinition, 0);
-	}
-	{
-		DeviceDefinition& deviceDefinition = vectorAdd(outDeviceDefinitions);
-		deviceDefinition.mDeviceType = DeviceType::KEYBOARD;
-		deviceDefinition.mIdentifier = "Keyboard2";
-		setupDefaultKeyboardMappings(deviceDefinition, 1);
+		deviceDefinition.mIdentifier = InputManager::KEYBOARD_DEVICE_NAMES[keyboardIndex];
+		setupDefaultKeyboardMappings(deviceDefinition, keyboardIndex);
 	}
 }
 
@@ -327,7 +323,7 @@ void InputConfig::setupDefaultKeyboardMappings(DeviceDefinition& outDeviceDefini
 	}
 	else
 	{
-		// Leave keyboard 2 empty
+		// Leave other keyboards empty
 	}
 }
 

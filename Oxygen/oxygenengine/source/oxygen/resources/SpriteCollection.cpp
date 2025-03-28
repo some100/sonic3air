@@ -1,6 +1,6 @@
 /*
 *	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
-*	Copyright (C) 2017-2024 by Eukaryot
+*	Copyright (C) 2017-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -28,6 +28,35 @@
 
 namespace
 {
+
+	bool isHexDigit(char ch)
+	{
+		return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F');
+	}
+
+	uint64 getSpriteKey(std::string_view identifier)
+	{
+		// Check if it's an hex identifier or a string
+		if (identifier.length() >= 3 && identifier[0] == '0' && identifier[1] == 'x')
+		{
+			bool isHex = true;
+			for (int i = 2; i < (int)identifier.length(); ++i)
+			{
+				if (!isHexDigit(identifier[i]))
+				{
+					isHex = false;
+					break;
+				}
+			}
+			if (isHex)
+			{
+				return rmx::parseInteger(identifier);
+			}
+		}
+
+		// Just use the string hash
+		return rmx::getMurmur2_64(identifier);
+	}
 
 	void decodeROMSpriteData(EmulatorInterface& emulatorInterface, std::vector<RenderUtils::PatternPixelContent>& patternBuffer, uint32 patternsBaseAddress, uint32 patternAddress, SpriteCollection::ROMSpriteEncoding encoding)
 	{
@@ -145,11 +174,6 @@ namespace
 		createPaletteSpriteFromROM(emulatorInterface, paletteSprite, patternsBaseAddress, patternAddress, mappingAddress, encoding, indexOffset);
 	}
 
-	bool isHexDigit(char ch)
-	{
-		return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F');
-	}
-
 }
 
 
@@ -193,17 +217,18 @@ void SpriteCollection::clear()
 		delete pair.second.mSprite;
 	}
 	mSpriteItems.clear();
-	mSpritePalettes = SpritePalettes();
+	mSpritePalettes.clear();
+	mPaletteRedirections.clear();
 	++mGlobalChangeCounter;
 }
 
 void SpriteCollection::loadAllSpriteDefinitions()
 {
 	// Load or reload from all mods
-	loadSpriteDefinitions(L"data/sprites");
+	loadSpriteDefinitions(L"data/sprites", nullptr);
 	for (const Mod* mod : ModManager::instance().getActiveMods())
 	{
-		loadSpriteDefinitions(mod->mFullPath + L"sprites");
+		loadSpriteDefinitions(mod->mFullPath + L"sprites", mod);
 	}
 }
 
@@ -359,7 +384,7 @@ SpriteCollection::Item& SpriteCollection::createItem(uint64 key)
 	return item;
 }
 
-void SpriteCollection::loadSpriteDefinitions(const std::wstring& path)
+void SpriteCollection::loadSpriteDefinitions(const std::wstring& path, const Mod* mod)
 {
 	struct PaletteSpriteSheet
 	{
@@ -388,31 +413,7 @@ void SpriteCollection::loadSpriteDefinitions(const std::wstring& path)
 		for (auto iterator = spritesJson.begin(); iterator != spritesJson.end(); ++iterator)
 		{
 			const String identifier(iterator.key().asString());
-			uint64 key = 0;
-			{
-				// Check if it's an hex identifier or a string
-				if (identifier.length() >= 3 && identifier[0] == '0' && identifier[1] == 'x')
-				{
-					bool isHex = true;
-					for (int i = 2; i < identifier.length(); ++i)
-					{
-						if (!isHexDigit(identifier[i]))
-						{
-							isHex = false;
-							break;
-						}
-					}
-					if (isHex)
-					{
-						key = rmx::parseInteger(identifier);
-					}
-				}
-
-				if (key == 0)
-				{
-					key = rmx::getMurmur2_64(identifier);
-				}
-			}
+			const uint64 spriteKey = getSpriteKey(identifier);
 
 			std::wstring filename;
 			Vec2i center;
@@ -439,7 +440,7 @@ void SpriteCollection::loadSpriteDefinitions(const std::wstring& path)
 			{
 				// Check for overloading
 				{
-					Item* existingItem = mapFind(mSpriteItems, key);
+					Item* existingItem = mapFind(mSpriteItems, spriteKey);
 					if (nullptr != existingItem)
 					{
 						// This sprite got overloaded e.g. by a mod -- remove the old version
@@ -447,10 +448,11 @@ void SpriteCollection::loadSpriteDefinitions(const std::wstring& path)
 					}
 				}
 
-				Item& item = createItem(key);
-			#ifdef DEBUG
+				Item& item = createItem(spriteKey);
+				item.mSourceInfo.mType = SourceInfo::Type::SPRITE_FILE;
 				item.mSourceInfo.mSourceIdentifier = *identifier;
-			#endif
+				item.mSourceInfo.mMod = mod;
+
 				const std::wstring fullpath = fileEntry.mPath + filename;
 
 				// Palette or RGBA?
@@ -468,7 +470,7 @@ void SpriteCollection::loadSpriteDefinitions(const std::wstring& path)
 					PaletteSprite* sprite = new PaletteSprite();
 					item.mSprite = sprite;
 
-					const uint64 paletteKey = rmx::getMurmur2_64("@" + iterator.key().asString());
+					const uint64 paletteKey = spriteKey;
 
 					if (sheetKey != 0)
 					{
@@ -480,13 +482,13 @@ void SpriteCollection::loadSpriteDefinitions(const std::wstring& path)
 							if (success)
 							{
 								sheet.mFirstSpritePaletteKey = paletteKey;
-								addSpritePalette(paletteKey, palette);
+								addSpritePalette(paletteKey, item, palette);
 							}
 						}
 						else
 						{
 							success = true;
-							mSpritePalettes.mRedirections[paletteKey] = sheet.mFirstSpritePaletteKey;
+							mPaletteRedirections[paletteKey] = sheet.mFirstSpritePaletteKey;
 						}
 
 						if (success)
@@ -502,7 +504,7 @@ void SpriteCollection::loadSpriteDefinitions(const std::wstring& path)
 						if (success)
 						{
 							sprite->createFromBitmap(std::move(bitmap), -center);
-							addSpritePalette(paletteKey, palette);
+							addSpritePalette(paletteKey, item, palette);
 						}
 					}
 				}
@@ -542,9 +544,11 @@ void SpriteCollection::loadSpriteDefinitions(const std::wstring& path)
 	}
 }
 
-void SpriteCollection::addSpritePalette(uint64 paletteKey, std::vector<uint32>& palette)
+void SpriteCollection::addSpritePalette(uint64 paletteKey, const Item& item, std::vector<uint32>& palette)
 {
 	// After loading from a BMP, the palette is set to all opaque colors, but we usually need index 0 to be transparent
 	palette[0] &= 0x00ffffff;
-	mSpritePalettes.mPalettes[paletteKey] = palette;
+	SpritePalette& spritePalette = mSpritePalettes[paletteKey];
+	spritePalette.mItem = &item;
+	spritePalette.mColors = palette;
 }

@@ -1,6 +1,6 @@
 /*
 *	rmx Library
-*	Copyright (C) 2008-2024 by Eukaryot
+*	Copyright (C) 2008-2025 by Eukaryot
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html
@@ -247,6 +247,28 @@ namespace rmx
 		return std_filesystem::exists(fspath);
 	#else
 		RMX_ASSERT(false, "Not implemented: FileIO::exists");
+		return false;
+	#endif
+	}
+
+	bool FileIO::isFile(std::wstring_view path)
+	{
+	#ifdef USE_STD_FILESYSTEM
+		const std_filesystem::path fspath(path.data());
+		return std_filesystem::is_regular_file(fspath);
+	#else
+		RMX_ASSERT(false, "Not implemented: FileIO::isFile");
+		return false;
+	#endif
+	}
+
+	bool FileIO::isDirectory(std::wstring_view path)
+	{
+	#ifdef USE_STD_FILESYSTEM
+		const std_filesystem::path fspath(path.data());
+		return std_filesystem::is_directory(fspath);
+	#else
+		RMX_ASSERT(false, "Not implemented: FileIO::isDirectory");
 		return false;
 	#endif
 	}
@@ -578,7 +600,7 @@ namespace rmx
 	{
 	#ifdef USE_STD_FILESYSTEM
 		return std_filesystem::current_path().wstring();
-    #else
+	#else
 		return L"";
 	#endif
 	}
